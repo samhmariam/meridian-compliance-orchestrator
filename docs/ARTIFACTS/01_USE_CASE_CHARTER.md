@@ -38,10 +38,10 @@ This highly manual evidence-gathering and reporting process is fragile, inconsis
 The workflow consists of several distinct tasks:
 1. **Intake Validation (Deterministic):** Validating the incoming `QualificationRequest` schema and parsing data.
 2. **Sanctions Screening (Deterministic):** Querying structured sanctions lists via API to see if `supplier_id` matches.
-3. **Export Control Classification (Deterministic / LLM-Assisted):** Looking up internal database/schedules based on primary commodity codes.
-4. **REACH Check (LLM-Assisted / Agentic):** Retrieving unstructured regulatory guidance against declared CAS numbers to assess compliance, which requires navigating complex, evolving text.
-5. **Risk Classification & Memo Generation (Agentic):** Synthesizing the gathered evidence from all the parallel checks, evaluating contradictions (e.g. stale vs fresh documents), classifying the severity of the risk, and authoring a cohesive, cited compliance memo. This mimics human reasoning.
-6. **Human Approval Gate (Human-driven):** The final sign-off based on the generated evidence packet remains human-driven.
+3. **Export Control Classification (Deterministic):** Looking up internal database/schedules based on primary commodity codes.
+4. **REACH Check (LLM-Assisted):** Retrieving unstructured regulatory guidance against declared CAS numbers to assess compliance, which requires navigating complex, evolving text.
+5. **Risk Classification & Memo Generation (Genuinely Agentic):** Synthesizing the gathered evidence from all the parallel checks, evaluating contradictions (e.g. stale vs fresh documents), classifying the severity of the risk, and authoring a cohesive, cited compliance memo. This mimics human reasoning.
+6. **Human Approval Gate (Human-driven):** The final sign-off based on the generated evidence packet remains human-driven. This step sits outside the AI-work taxonomy of deterministic / LLM-assisted / agentic — it is a human decision point and is not classified as an AI action.
 7. **ERP Activation (Deterministic):** Triggers the activation API in the ERP upon approval.
 
 An agentic architecture is justified because the workflow requires reading unstructured compliance guidance (REACH) and dynamically pulling contextual evidence from a corpus to synthesize a complex, multi-factor risk decision before human review. Rule-based automation fails at the unstructured data synthesis, and human-only leaves the bottleneck intact. See `02_COUNTERFACTUAL_MEMO.md` for rejected alternatives.
@@ -71,11 +71,11 @@ An agentic architecture is justified because the workflow requires reading unstr
 - **Operational:** Reduce human compliance officer time spent per request.
   - *Baseline:* ~2 hours (gathering evidence and memo writing). *Target:* < 15 minutes (reviewing evidence packet).
 - **Economic (Token Cost):** Token cost per qualification.
-  - *Baseline:* N/A. *Target:* < £0.25 at production pricing.
+  - *Baseline:* No pre-existing automated baseline exists. *Baseline collection plan:* Token cost will be measured per LangSmith trace during the D03 integration test run against 50 synthetic qualification events; the mean and p95 values will be recorded from those traces as the pre-optimisation baseline before any prompt-tuning is applied. *Target:* < £0.25 at production pricing.
 - **Economic (Latency):** End-to-end orchestration latency (p95).
-  - *Baseline:* N/A. *Target:* < 45 seconds (excluding human approval pause).
+  - *Baseline:* No pre-existing automated baseline exists. *Baseline collection plan:* End-to-end wall-clock latency (graph start to audit-close node completion) will be captured from Azure Monitor traces during the same D03 integration test run; p95 across 50 synthetic events will be recorded before any performance optimisation is attempted. *Target:* < 45 seconds (excluding human approval pause).
 - **Quality (RAGAS):** Faithfulness and Context Recall of generated memos.
-  - *Baseline:* N/A. *Target:* Faithfulness >= 0.85, Context Recall >= 0.80.
+  - *Baseline:* No pre-existing RAGAS scores exist. *Baseline collection plan:* A RAGAS evaluation dataset of 20 annotated REACH memo pairs will be assembled during the D04 eval sprint; faithfulness and context recall scores from the first un-tuned model run will be logged in `14_EVAL_SCORECARD.md` as the baseline before any retrieval or prompt improvements are made. *Target:* Faithfulness >= 0.85, Context Recall >= 0.80.
 
 ### 7. Failure consequences
 

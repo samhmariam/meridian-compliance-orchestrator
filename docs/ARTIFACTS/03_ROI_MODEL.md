@@ -3,7 +3,7 @@
 ## Role in the programme
 
 - **Primary module:** M01
-- **First due:** D01
+- **First due:** D02
 - **Capstone anchor:** `meridian-compliance-orchestrator`
 
 ## Purpose
@@ -33,10 +33,10 @@ This model calculates the Return on Investment (ROI) for the `meridian-complianc
 ### 3. Cost model
 
 - **Build Cost (One-time):** £24,000 (300 engineering hours to scaffold, build, and evaluate the orchestration).
-- **Run-time (Infra + Tokens):** ~£77.00 infra + ~£100 tokens = £177.00 / month.
+- **Run-time (Infra + Tokens):** ~£77.00 infra + ~£100 tokens = £177.00 / month (cloud spend only).
 - **Maintenance (Ongoing):** £1,600 / month (20 engineering hours).
 - **Human Review (Ongoing):** £6,000 / month (100 hours of compliance review time at £60/hr for 400 events).
-- **Total Operational Cost:** ~£7,777 / month.
+- **Total Operational Cost:** ~£7,777 / month. Reconciliation: £177 cloud spend + £1,600 maintenance + £6,000 human review = £7,777 monthly operating cost.
 
 ### 3b. Azure infrastructure cost decomposition
 
@@ -53,8 +53,7 @@ Break down the monthly Azure operating cost for the production topology. Use the
 | Observability | Azure Monitor / Log Analytics | Pay-As-You-Go | £2.50 | Estimating 1GB ingestion/month for traces. |
 | Container registry | Azure Container Registry | Basic | £4.00 | Minimal image storage. |
 | Network egress | Egress to LangSmith / external | Zone 1 | £0.00 | First 100GB/month is free. |
-| Human review cost | Compliance officer time | 100 hours/month × £60 | £6,000.00 | 15 mins per event × 400 events. |
-| **Total estimated monthly cost** | | | **£6,177.00** | Adding maintenance (£1,600) brings total ongoing to £7,777. |
+| **Total Azure cloud spend (monthly)** | | | **£177.00** | Cloud services only; human review and maintenance costs are accounted for in the operating-cost model above. |
 
 **Cost scaling note:** If qualification volume doubles to 800/month, inference tokens scale linearly to £200, human review scales linearly to £12,000. Azure fixed costs (Search, DB, ACR) remain flat, driving strong economies of scale. 
 

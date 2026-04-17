@@ -42,7 +42,7 @@ Mark each as autonomous, advisory, or approval-required.
 | `risk_classifier` | **Advisory** (Output is purely a recommendation for the human) |
 | `generate_compliance_memo` | **Advisory** (Output is an evidence draft for the human reviewer) |
 | `human_approval_gate` | **Approval-Required** (Halts the StateGraph via `interrupt_before`) |
-| `activate_supplier_in_erp` | **Autonomous (Conditional)** (Executes strictly autonomously *after* and *if* the state contains a valid `"approved"` signal from the human approval gate) |
+| `activate_supplier_in_erp` | **Approval-Required** (Executes only after the state contains a valid `"approved"` signal from the human approval gate; that signal is the approval, not a separate control class) |
 
 ### 3. Evidence required
 
