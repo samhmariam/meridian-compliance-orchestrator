@@ -1,0 +1,306 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.42.1.51946",
+      "templateHash": "1829709796342371596"
+    }
+  },
+  "parameters": {
+    "location": {
+      "type": "string",
+      "defaultValue": "[resourceGroup().location]",
+      "metadata": {
+        "description": "The Azure region for the Day 04 identity resources"
+      }
+    },
+    "keyVaultName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the Key Vault housing the secrets"
+      }
+    },
+    "graphSecretNames": {
+      "type": "array",
+      "metadata": {
+        "description": "The names of the Key Vault secrets the execution Graph Host identity may read"
+      }
+    },
+    "erpSecretNames": {
+      "type": "array",
+      "metadata": {
+        "description": "The names of the Key Vault secrets the ERP Writer identity may read"
+      }
+    },
+    "graphIdentityObjectId": {
+      "type": "string",
+      "metadata": {
+        "description": "The object ID of the execution Graph Host identity"
+      }
+    },
+    "ingestIdentityObjectId": {
+      "type": "string",
+      "metadata": {
+        "description": "The object ID of the Ingestion Identity"
+      }
+    },
+    "erpWriterIdentityObjectId": {
+      "type": "string",
+      "metadata": {
+        "description": "The object ID of the ERP Writer identity"
+      }
+    },
+    "complianceOfficerGroupId": {
+      "type": "string",
+      "metadata": {
+        "description": "The principal ID of the Meridian Compliance Officer group"
+      }
+    },
+    "searchServiceName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the Azure AI Search service used by the graph and ingestion planes"
+      }
+    },
+    "cosmosAccountName": {
+      "type": "string",
+      "metadata": {
+        "description": "The name of the Cosmos DB account storing workflow state"
+      }
+    },
+    "keyVaultSoftDeleteRetentionDays": {
+      "type": "int",
+      "defaultValue": 90,
+      "minValue": 7,
+      "maxValue": 90,
+      "metadata": {
+        "description": "The Key Vault soft delete retention period in days"
+      }
+    },
+    "searchSkuName": {
+      "type": "string",
+      "defaultValue": "free",
+      "allowedValues": [
+        "free",
+        "basic"
+      ],
+      "metadata": {
+        "description": "The SKU for the Azure AI Search service. Use free for a single low-cost dev service, or basic if you need a paid tier."
+      }
+    },
+    "searchReplicaCount": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "metadata": {
+        "description": "The number of Azure AI Search replicas"
+      }
+    },
+    "searchPartitionCount": {
+      "type": "int",
+      "defaultValue": 1,
+      "minValue": 1,
+      "metadata": {
+        "description": "The number of Azure AI Search partitions"
+      }
+    },
+    "cosmosAccountMode": {
+      "type": "string",
+      "defaultValue": "serverless",
+      "allowedValues": [
+        "serverless",
+        "freeTier"
+      ],
+      "metadata": {
+        "description": "The dev Cosmos DB account mode. Use serverless by default, or freeTier if you prefer the free-tier account model."
+      }
+    },
+    "graphCosmosScope": {
+      "type": "string",
+      "defaultValue": "/",
+      "metadata": {
+        "description": "The Cosmos DB data-plane scope for the Graph Host identity. Use / for the account or a narrower database/container path."
+      }
+    },
+    "complianceOfficerCosmosScope": {
+      "type": "string",
+      "defaultValue": "/",
+      "metadata": {
+        "description": "The Cosmos DB data-plane scope for the Compliance Officer group. Use / for the account or a narrower database/container path."
+      }
+    }
+  },
+  "variables": {
+    "roleKeyVaultSecretsUser": "4633458b-17de-408a-b874-0445c86b69e6",
+    "roleSearchIndexDataReader": "1407120a-92aa-4202-b7e9-c0e197c71c8f",
+    "roleSearchIndexDataContributor": "8ebe5a00-799e-43f5-93ac-243d3dce84a7",
+    "roleCosmosDBBuiltInContributor": "00000000-0000-0000-0000-000000000002",
+    "cosmosBuiltInContributorRoleDefinitionId": "[format('{0}/sqlRoleDefinitions/{1}', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), variables('roleCosmosDBBuiltInContributor'))]",
+    "graphCosmosAssignmentScope": "[if(startsWith(parameters('graphCosmosScope'), '/subscriptions/'), parameters('graphCosmosScope'), if(equals(parameters('graphCosmosScope'), '/'), format('{0}/', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))), format('{0}{1}', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), parameters('graphCosmosScope'))))]",
+    "complianceOfficerCosmosAssignmentScope": "[if(startsWith(parameters('complianceOfficerCosmosScope'), '/subscriptions/'), parameters('complianceOfficerCosmosScope'), if(equals(parameters('complianceOfficerCosmosScope'), '/'), format('{0}/', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))), format('{0}{1}', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), parameters('complianceOfficerCosmosScope'))))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.KeyVault/vaults",
+      "apiVersion": "2023-07-01",
+      "name": "[parameters('keyVaultName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "accessPolicies": [],
+        "enableRbacAuthorization": true,
+        "enableSoftDelete": true,
+        "publicNetworkAccess": "enabled",
+        "sku": {
+          "family": "A",
+          "name": "standard"
+        },
+        "softDeleteRetentionInDays": "[parameters('keyVaultSoftDeleteRetentionDays')]",
+        "tenantId": "[tenant().tenantId]"
+      }
+    },
+    {
+      "type": "Microsoft.Search/searchServices",
+      "apiVersion": "2023-11-01",
+      "name": "[parameters('searchServiceName')]",
+      "location": "[parameters('location')]",
+      "properties": {
+        "authOptions": {
+          "apiKeyOnly": {}
+        },
+        "disableLocalAuth": false,
+        "hostingMode": "default",
+        "partitionCount": "[parameters('searchPartitionCount')]",
+        "publicNetworkAccess": "enabled",
+        "replicaCount": "[parameters('searchReplicaCount')]",
+        "semanticSearch": "free"
+      },
+      "sku": {
+        "name": "[parameters('searchSkuName')]"
+      }
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts",
+      "apiVersion": "2024-05-15",
+      "name": "[parameters('cosmosAccountName')]",
+      "location": "[parameters('location')]",
+      "kind": "GlobalDocumentDB",
+      "properties": {
+        "capabilities": "[if(equals(parameters('cosmosAccountMode'), 'serverless'), createArray(createObject('name', 'EnableServerless')), createArray())]",
+        "consistencyPolicy": {
+          "defaultConsistencyLevel": "Session"
+        },
+        "databaseAccountOfferType": "Standard",
+        "disableKeyBasedMetadataWriteAccess": false,
+        "disableLocalAuth": false,
+        "enableFreeTier": "[equals(parameters('cosmosAccountMode'), 'freeTier')]",
+        "enableAutomaticFailover": false,
+        "enableMultipleWriteLocations": false,
+        "ipRules": [],
+        "isVirtualNetworkFilterEnabled": false,
+        "locations": [
+          {
+            "failoverPriority": 0,
+            "isZoneRedundant": false,
+            "locationName": "[parameters('location')]"
+          }
+        ],
+        "minimalTlsVersion": "Tls12",
+        "networkAclBypass": "None",
+        "networkAclBypassResourceIds": [],
+        "publicNetworkAccess": "Enabled"
+      }
+    },
+    {
+      "copy": {
+        "name": "graphKvAccess",
+        "count": "[length(parameters('graphSecretNames'))]"
+      },
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), parameters('graphSecretNames')[copyIndex()])]",
+      "name": "[guid(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), parameters('graphSecretNames')[copyIndex()]), parameters('graphIdentityObjectId'), variables('roleKeyVaultSecretsUser'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roleKeyVaultSecretsUser'))]",
+        "principalId": "[parameters('graphIdentityObjectId')]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Search/searchServices', parameters('searchServiceName'))]",
+      "name": "[guid(resourceId('Microsoft.Search/searchServices', parameters('searchServiceName')), parameters('graphIdentityObjectId'), variables('roleSearchIndexDataReader'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roleSearchIndexDataReader'))]",
+        "principalId": "[parameters('graphIdentityObjectId')]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Search/searchServices', parameters('searchServiceName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+      "apiVersion": "2022-11-15",
+      "name": "[format('{0}/{1}', parameters('cosmosAccountName'), guid(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), parameters('graphIdentityObjectId'), variables('graphCosmosAssignmentScope'), variables('roleCosmosDBBuiltInContributor')))]",
+      "properties": {
+        "principalId": "[parameters('graphIdentityObjectId')]",
+        "roleDefinitionId": "[variables('cosmosBuiltInContributorRoleDefinitionId')]",
+        "scope": "[variables('graphCosmosAssignmentScope')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.Search/searchServices', parameters('searchServiceName'))]",
+      "name": "[guid(resourceId('Microsoft.Search/searchServices', parameters('searchServiceName')), parameters('ingestIdentityObjectId'), variables('roleSearchIndexDataContributor'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roleSearchIndexDataContributor'))]",
+        "principalId": "[parameters('ingestIdentityObjectId')]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.Search/searchServices', parameters('searchServiceName'))]"
+      ]
+    },
+    {
+      "copy": {
+        "name": "erpKvAccess",
+        "count": "[length(parameters('erpSecretNames'))]"
+      },
+      "type": "Microsoft.Authorization/roleAssignments",
+      "apiVersion": "2022-04-01",
+      "scope": "[resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), parameters('erpSecretNames')[copyIndex()])]",
+      "name": "[guid(resourceId('Microsoft.KeyVault/vaults/secrets', parameters('keyVaultName'), parameters('erpSecretNames')[copyIndex()]), parameters('erpWriterIdentityObjectId'), variables('roleKeyVaultSecretsUser'))]",
+      "properties": {
+        "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('roleKeyVaultSecretsUser'))]",
+        "principalId": "[parameters('erpWriterIdentityObjectId')]",
+        "principalType": "ServicePrincipal"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
+      ]
+    },
+    {
+      "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
+      "apiVersion": "2022-11-15",
+      "name": "[format('{0}/{1}', parameters('cosmosAccountName'), guid(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), parameters('complianceOfficerGroupId'), variables('complianceOfficerCosmosAssignmentScope'), variables('roleCosmosDBBuiltInContributor')))]",
+      "properties": {
+        "principalId": "[parameters('complianceOfficerGroupId')]",
+        "roleDefinitionId": "[variables('cosmosBuiltInContributorRoleDefinitionId')]",
+        "scope": "[variables('complianceOfficerCosmosAssignmentScope')]"
+      },
+      "dependsOn": [
+        "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))]"
+      ]
+    }
+  ]
+}

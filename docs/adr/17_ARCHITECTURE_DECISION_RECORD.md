@@ -133,6 +133,44 @@ We have not yet determined the exact token consumption profile per qualification
 
 **Status:** Open Risk
 
+---
+
+### 1. ADR metadata
+
+**ID:** ADR-004  
+**Title:** Identity Topology and Deployment Controls  
+**Date:** 2026-04-17  
+**Status:** Accepted (D04)  
+**Owners:** FDE Security Team
+
+### 2. Context
+
+What problem or tension required a decision?
+Day 04 requires strict separation of read/write/admin and pipeline identity planes. If we use a single monolith deployment identity to deploy our infrastructure, code, and perform migrations, it inevitably garners Data Plane access (like reading Key Vaults or peering into Cosmos DB data) breaking least privilege. We need to decouple our pipeline identities from the runtime execution ones.
+
+### 3. Options considered
+
+1. **Monolithic Service Principal:** A single GitHub Actions identity that creates ACA containers, provisions DBs, and acts as the application's runtime identity simultaneously.
+2. **Topology Isolation (Strict Plane Decoupling):** Deployer identity creates infrastructure but cannot read runtime data (`mi-meridian-deployer`). Separate runtime execution identities are granted strictly isolated bindings mapping `mi-meridian-graph` vs `mi-meridian-erp-activator` via distinct Bicep roleAssignments.
+
+### 4. Decision
+
+We choose **Option 2: Topology Isolation (Strict Plane Decoupling)**.
+
+### 5. Rationale
+
+This natively fulfills ZT02 (No hidden write path/broad credential). By physically isolating `mi-meridian-deployer` to Control Plane operations exclusively (e.g., restricted `Role Based Access Control Administrator` on bounding groups, with exactly zero Data Plane read access), a compromised CI/CD pipeline token cannot be abused by a threat actor to download current compliance data or manually run ERP triggers. 
+
+### 6. Consequences
+
+- **Trade-offs:** High infrastructure-as-code (IaC) complexity. Bicep modules need fine-grained `roleDefinitions` which are trickier to debug locally.
+- **New Risks:** Overly restrictive bounds might cause transient deployment failures if the deployment identity lacks a niche secondary scope needed to restart a Container App toggle.
+- **Follow-up actions:** Continuous `az role assignment list` audits explicitly executed against the managed identities when deploying further architecture in M02.
+
+### 7. Status updates
+
+**Status:** Accepted (Active)
+
 ## Evidence required for acceptance
 
 - [x] At least one ADR for each major module decision area.

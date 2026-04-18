@@ -4,22 +4,27 @@ import os
 import sys
 from typing import TypedDict
 
-from dotenv import load_dotenv
+# Import native Key Vault integration (eliminating .env)
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "src")))
+from orchestrator.auth import get_secret
 
 from langsmith import Client, get_current_run_tree, traceable
 from langgraph.checkpoint.memory import InMemorySaver
 from langgraph.graph import StateGraph, START, END
 
-# Load environment variables (e.g. LANGSMITH_API_KEY from .env)
-# As noted in D03 review: .env is an ephemeral fallback for local proving.
-# All live deployments will graduate to Azure Key Vault secrets for D12.
-load_dotenv()
-
-# We need LANGSMITH_API_KEY explicitly to prove this maps to a real backend per D03
-if not os.environ.get("LANGSMITH_API_KEY"):
-    print("ERROR: LANGSMITH_API_KEY is not set.")
-    print("D03 requires a live trace. Please set your LangSmith key as a temporary environment variable or in a .env file.")
-    sys.exit(1)
+vault_url = os.environ.get("AZURE_KEYVAULT_URL")
+if not vault_url:
+    print("WARNING: AZURE_KEYVAULT_URL is missing. Will drop tracing if execution continues offline.")
+else:
+    try:
+        # Retrieve secret explicitly via DefaultAzureCredential chain
+        # Requires the developer or managed identity to have 'Key Vault Secrets User'
+        api_key, cred_type = get_secret(vault_url, "langsmith-api-key")
+        os.environ["LANGSMITH_API_KEY"] = api_key
+        print(f"[AUTH] Successfully retrieved Langsmith credentials via: {cred_type}")
+    except Exception as e:
+        print(f"FAILED to authenticate to Key Vault: {e}")
+        sys.exit(1)
 
 # Ensure tracing is forced on
 os.environ["LANGSMITH_TRACING"] = "true"
