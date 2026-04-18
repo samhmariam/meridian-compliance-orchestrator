@@ -81,7 +81,7 @@ State where debugging telemetry and enterprise telemetry live.
 
 **Fill here:**
 - **Debugging Telemetry:** Lives transiently in LangSmith (via direct callback environment routing). This targets iterative developer experience inside the dev/test ring to troubleshoot agent loops and token efficiency (D03 target).
-- **Enterprise/Compliance Telemetry:** Native Log Analytics bounding and enterprise-wide Azure Monitor (D23 target) ensuring SOC2/ISO limits are placed on PII retention and data sovereignty.
+- **Enterprise/Compliance Telemetry:** Native Azure Monitor (Log Analytics / Application Insights) bounding ensuring SOC2/ISO limits are placed on PII retention and data sovereignty.
 
 ### 7. Alerting hooks
 

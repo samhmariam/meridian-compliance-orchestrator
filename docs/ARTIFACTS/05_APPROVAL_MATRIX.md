@@ -69,7 +69,7 @@ Approved, rejected, deferred, plus downstream effect.
 
 State who can approve and how the action is logged.
 
-- **Who:** Only identities bearing the explicit RBAC `Meridian Compliance Officer` Entra ID security group assignment can interact with the approval webhook payload.
+- **Who:** Only identities bearing the explicit RBAC `Meridian Compliance Officer` Entra ID security group assignment can authenticate against a dedicated "Review Web API" boundary. This strictly revokes arbitrary direct database write scopes, isolating the human interaction to controlled Web API endpoints that proxy the approval webhook payload. The Web API itself holds the constrained application role required to update approval state and resume the graph.
 - **Audit Logging:** Upon resume, the `audit_close` node will append a durable `AuditEvent` to the graph state recording the `human_decision`, the exact `human_decision_by` (using their Entra Object ID), the `human_decision_at` timestamp, and the required textual `human_decision_rationale`. This enforces non-repudiation of the approval.
 
 ### 6. Future change triggers

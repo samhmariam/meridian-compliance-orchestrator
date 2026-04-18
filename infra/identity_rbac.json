@@ -4,8 +4,8 @@
   "metadata": {
     "_generator": {
       "name": "bicep",
-      "version": "0.42.1.51946",
-      "templateHash": "1829709796342371596"
+      "version": "0.41.2.15936",
+      "templateHash": "11138208112649822214"
     }
   },
   "parameters": {
@@ -52,22 +52,30 @@
         "description": "The object ID of the ERP Writer identity"
       }
     },
-    "complianceOfficerGroupId": {
-      "type": "string",
-      "metadata": {
-        "description": "The principal ID of the Meridian Compliance Officer group"
-      }
-    },
     "searchServiceName": {
       "type": "string",
       "metadata": {
         "description": "The name of the Azure AI Search service used by the graph and ingestion planes"
       }
     },
-    "cosmosAccountName": {
+    "postgresServerName": {
       "type": "string",
       "metadata": {
-        "description": "The name of the Cosmos DB account storing workflow state"
+        "description": "The name of the Azure Database for PostgreSQL Flexible Server storing workflow state"
+      }
+    },
+    "postgresBootstrapAdminObjectId": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional dedicated Entra principal object ID used only to bootstrap PostgreSQL database roles"
+      }
+    },
+    "postgresBootstrapAdminPrincipalName": {
+      "type": "string",
+      "defaultValue": "",
+      "metadata": {
+        "description": "Optional dedicated Entra principal display name used only to bootstrap PostgreSQL database roles"
       }
     },
     "keyVaultSoftDeleteRetentionDays": {
@@ -106,40 +114,23 @@
         "description": "The number of Azure AI Search partitions"
       }
     },
-    "cosmosAccountMode": {
+    "postgresBootstrapAdminPrincipalType": {
       "type": "string",
-      "defaultValue": "serverless",
+      "defaultValue": "Group",
       "allowedValues": [
-        "serverless",
-        "freeTier"
+        "Group",
+        "ServicePrincipal",
+        "User"
       ],
       "metadata": {
-        "description": "The dev Cosmos DB account mode. Use serverless by default, or freeTier if you prefer the free-tier account model."
-      }
-    },
-    "graphCosmosScope": {
-      "type": "string",
-      "defaultValue": "/",
-      "metadata": {
-        "description": "The Cosmos DB data-plane scope for the Graph Host identity. Use / for the account or a narrower database/container path."
-      }
-    },
-    "complianceOfficerCosmosScope": {
-      "type": "string",
-      "defaultValue": "/",
-      "metadata": {
-        "description": "The Cosmos DB data-plane scope for the Compliance Officer group. Use / for the account or a narrower database/container path."
+        "description": "Principal type for the dedicated PostgreSQL bootstrap admin"
       }
     }
   },
   "variables": {
     "roleKeyVaultSecretsUser": "4633458b-17de-408a-b874-0445c86b69e6",
     "roleSearchIndexDataReader": "1407120a-92aa-4202-b7e9-c0e197c71c8f",
-    "roleSearchIndexDataContributor": "8ebe5a00-799e-43f5-93ac-243d3dce84a7",
-    "roleCosmosDBBuiltInContributor": "00000000-0000-0000-0000-000000000002",
-    "cosmosBuiltInContributorRoleDefinitionId": "[format('{0}/sqlRoleDefinitions/{1}', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), variables('roleCosmosDBBuiltInContributor'))]",
-    "graphCosmosAssignmentScope": "[if(startsWith(parameters('graphCosmosScope'), '/subscriptions/'), parameters('graphCosmosScope'), if(equals(parameters('graphCosmosScope'), '/'), format('{0}/', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))), format('{0}{1}', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), parameters('graphCosmosScope'))))]",
-    "complianceOfficerCosmosAssignmentScope": "[if(startsWith(parameters('complianceOfficerCosmosScope'), '/subscriptions/'), parameters('complianceOfficerCosmosScope'), if(equals(parameters('complianceOfficerCosmosScope'), '/'), format('{0}/', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))), format('{0}{1}', resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), parameters('complianceOfficerCosmosScope'))))]"
+    "roleSearchIndexDataContributor": "8ebe5a00-799e-43f5-93ac-243d3dce84a7"
   },
   "resources": [
     {
@@ -181,35 +172,21 @@
       }
     },
     {
-      "type": "Microsoft.DocumentDB/databaseAccounts",
-      "apiVersion": "2024-05-15",
-      "name": "[parameters('cosmosAccountName')]",
+      "type": "Microsoft.DBforPostgreSQL/flexibleServers",
+      "apiVersion": "2023-12-01-preview",
+      "name": "[parameters('postgresServerName')]",
       "location": "[parameters('location')]",
-      "kind": "GlobalDocumentDB",
+      "sku": {
+        "name": "Standard_B1ms",
+        "tier": "Burstable"
+      },
       "properties": {
-        "capabilities": "[if(equals(parameters('cosmosAccountMode'), 'serverless'), createArray(createObject('name', 'EnableServerless')), createArray())]",
-        "consistencyPolicy": {
-          "defaultConsistencyLevel": "Session"
-        },
-        "databaseAccountOfferType": "Standard",
-        "disableKeyBasedMetadataWriteAccess": false,
-        "disableLocalAuth": false,
-        "enableFreeTier": "[equals(parameters('cosmosAccountMode'), 'freeTier')]",
-        "enableAutomaticFailover": false,
-        "enableMultipleWriteLocations": false,
-        "ipRules": [],
-        "isVirtualNetworkFilterEnabled": false,
-        "locations": [
-          {
-            "failoverPriority": 0,
-            "isZoneRedundant": false,
-            "locationName": "[parameters('location')]"
-          }
-        ],
-        "minimalTlsVersion": "Tls12",
-        "networkAclBypass": "None",
-        "networkAclBypassResourceIds": [],
-        "publicNetworkAccess": "Enabled"
+        "version": "16",
+        "authConfig": {
+          "activeDirectoryAuth": "Enabled",
+          "passwordAuth": "Disabled",
+          "tenantId": "[tenant().tenantId]"
+        }
       }
     },
     {
@@ -245,16 +222,17 @@
       ]
     },
     {
-      "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
-      "apiVersion": "2022-11-15",
-      "name": "[format('{0}/{1}', parameters('cosmosAccountName'), guid(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), parameters('graphIdentityObjectId'), variables('graphCosmosAssignmentScope'), variables('roleCosmosDBBuiltInContributor')))]",
+      "type": "Microsoft.DBforPostgreSQL/flexibleServers/administrators",
+      "apiVersion": "2023-12-01-preview",
+      "condition": "[and(not(empty(parameters('postgresBootstrapAdminObjectId'))), not(empty(parameters('postgresBootstrapAdminPrincipalName'))))]",
+      "name": "[format('{0}/{1}', parameters('postgresServerName'), parameters('postgresBootstrapAdminObjectId'))]",
       "properties": {
-        "principalId": "[parameters('graphIdentityObjectId')]",
-        "roleDefinitionId": "[variables('cosmosBuiltInContributorRoleDefinitionId')]",
-        "scope": "[variables('graphCosmosAssignmentScope')]"
+        "principalType": "[parameters('postgresBootstrapAdminPrincipalType')]",
+        "principalName": "[parameters('postgresBootstrapAdminPrincipalName')]",
+        "tenantId": "[tenant().tenantId]"
       },
       "dependsOn": [
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))]"
+        "[resourceId('Microsoft.DBforPostgreSQL/flexibleServers', parameters('postgresServerName'))]"
       ]
     },
     {
@@ -287,19 +265,6 @@
       },
       "dependsOn": [
         "[resourceId('Microsoft.KeyVault/vaults', parameters('keyVaultName'))]"
-      ]
-    },
-    {
-      "type": "Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments",
-      "apiVersion": "2022-11-15",
-      "name": "[format('{0}/{1}', parameters('cosmosAccountName'), guid(resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName')), parameters('complianceOfficerGroupId'), variables('complianceOfficerCosmosAssignmentScope'), variables('roleCosmosDBBuiltInContributor')))]",
-      "properties": {
-        "principalId": "[parameters('complianceOfficerGroupId')]",
-        "roleDefinitionId": "[variables('cosmosBuiltInContributorRoleDefinitionId')]",
-        "scope": "[variables('complianceOfficerCosmosAssignmentScope')]"
-      },
-      "dependsOn": [
-        "[resourceId('Microsoft.DocumentDB/databaseAccounts', parameters('cosmosAccountName'))]"
       ]
     }
   ]

@@ -19,14 +19,25 @@ param ingestIdentityObjectId string
 @description('The object ID of the ERP Writer identity')
 param erpWriterIdentityObjectId string
 
-@description('The principal ID of the Meridian Compliance Officer group')
-param complianceOfficerGroupId string
-
 @description('The name of the Azure AI Search service used by the graph and ingestion planes')
 param searchServiceName string
 
-@description('The name of the Cosmos DB account storing workflow state')
-param cosmosAccountName string
+@description('The name of the Azure Database for PostgreSQL Flexible Server storing workflow state')
+param postgresServerName string
+
+@description('Optional dedicated Entra principal object ID used only to bootstrap PostgreSQL database roles')
+param postgresBootstrapAdminObjectId string = ''
+
+@description('Optional dedicated Entra principal display name used only to bootstrap PostgreSQL database roles')
+param postgresBootstrapAdminPrincipalName string = ''
+
+@description('Principal type for the dedicated PostgreSQL bootstrap admin')
+@allowed([
+  'Group'
+  'ServicePrincipal'
+  'User'
+])
+param postgresBootstrapAdminPrincipalType string = 'Group'
 
 @description('The Key Vault soft delete retention period in days')
 @minValue(7)
@@ -48,24 +59,11 @@ param searchReplicaCount int = 1
 @minValue(1)
 param searchPartitionCount int = 1
 
-@description('The dev Cosmos DB account mode. Use serverless by default, or freeTier if you prefer the free-tier account model.')
-@allowed([
-  'serverless'
-  'freeTier'
-])
-param cosmosAccountMode string = 'serverless'
-
-@description('The Cosmos DB data-plane scope for the Graph Host identity. Use / for the account or a narrower database/container path.')
-param graphCosmosScope string = '/'
-
-@description('The Cosmos DB data-plane scope for the Compliance Officer group. Use / for the account or a narrower database/container path.')
-param complianceOfficerCosmosScope string = '/'
 
 // Role Definition IDs
 var roleKeyVaultSecretsUser = '4633458b-17de-408a-b874-0445c86b69e6'
 var roleSearchIndexDataReader = '1407120a-92aa-4202-b7e9-c0e197c71c8f'
 var roleSearchIndexDataContributor = '8ebe5a00-799e-43f5-93ac-243d3dce84a7'
-var roleCosmosDBBuiltInContributor = '00000000-0000-0000-0000-000000000002'
 
 // Provision the bounded dev resources so the RBAC topology is self-contained.
 resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
@@ -114,52 +112,22 @@ resource searchService 'Microsoft.Search/searchServices@2023-11-01' = {
   }
 }
 
-resource cosmosAccount 'Microsoft.DocumentDB/databaseAccounts@2024-05-15' = {
-  name: cosmosAccountName
+resource postgresServer 'Microsoft.DBforPostgreSQL/flexibleServers@2023-12-01-preview' = {
+  name: postgresServerName
   location: location
-  kind: 'GlobalDocumentDB'
+  sku: {
+    name: 'Standard_B1ms'
+    tier: 'Burstable'
+  }
   properties: {
-    capabilities: cosmosAccountMode == 'serverless' ? [
-      {
-        name: 'EnableServerless'
-      }
-    ] : []
-    consistencyPolicy: {
-      defaultConsistencyLevel: 'Session'
+    version: '16'
+    authConfig: {
+      activeDirectoryAuth: 'Enabled'
+      passwordAuth: 'Disabled'
+      tenantId: tenant().tenantId
     }
-    databaseAccountOfferType: 'Standard'
-    disableKeyBasedMetadataWriteAccess: false
-    disableLocalAuth: false
-    enableFreeTier: cosmosAccountMode == 'freeTier'
-    enableAutomaticFailover: false
-    enableMultipleWriteLocations: false
-    ipRules: []
-    isVirtualNetworkFilterEnabled: false
-    locations: [
-      {
-        failoverPriority: 0
-        isZoneRedundant: false
-        locationName: location
-      }
-    ]
-    minimalTlsVersion: 'Tls12'
-    networkAclBypass: 'None'
-    networkAclBypassResourceIds: []
-    publicNetworkAccess: 'Enabled'
   }
 }
-
-var cosmosBuiltInContributorRoleDefinitionId = '${cosmosAccount.id}/sqlRoleDefinitions/${roleCosmosDBBuiltInContributor}'
-var graphCosmosAssignmentScope = startsWith(graphCosmosScope, '/subscriptions/')
-  ? graphCosmosScope
-  : graphCosmosScope == '/'
-    ? '${cosmosAccount.id}/'
-    : '${cosmosAccount.id}${graphCosmosScope}'
-var complianceOfficerCosmosAssignmentScope = startsWith(complianceOfficerCosmosScope, '/subscriptions/')
-  ? complianceOfficerCosmosScope
-  : complianceOfficerCosmosScope == '/'
-    ? '${cosmosAccount.id}/'
-    : '${cosmosAccount.id}${complianceOfficerCosmosScope}'
 
 // ----------------------------------------------------
 // Plane 1: Reading/Execution (Graph Host)
@@ -186,13 +154,15 @@ resource graphSearchAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' 
   }
 }
 
-resource graphCosmosAccess 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2022-11-15' = {
-  parent: cosmosAccount
-  name: guid(cosmosAccount.id, graphIdentityObjectId, graphCosmosAssignmentScope, roleCosmosDBBuiltInContributor)
+// Runtime access is intentionally not granted as a server administrator.
+// Scoped database roles are bootstrapped separately by a dedicated admin identity.
+resource postgresBootstrapAdmin 'Microsoft.DBforPostgreSQL/flexibleServers/administrators@2023-12-01-preview' = if (!empty(postgresBootstrapAdminObjectId) && !empty(postgresBootstrapAdminPrincipalName)) {
+  parent: postgresServer
+  name: postgresBootstrapAdminObjectId
   properties: {
-    principalId: graphIdentityObjectId
-    roleDefinitionId: cosmosBuiltInContributorRoleDefinitionId
-    scope: graphCosmosAssignmentScope
+    principalType: postgresBootstrapAdminPrincipalType
+    principalName: postgresBootstrapAdminPrincipalName
+    tenantId: tenant().tenantId
   }
 }
 
@@ -228,13 +198,4 @@ resource erpKvAccess 'Microsoft.Authorization/roleAssignments@2022-04-01' = [for
 // ----------------------------------------------------
 // Plane 4: Approvers (Humans)
 // ----------------------------------------------------
-
-resource complianceOfficerCosmosAccess 'Microsoft.DocumentDB/databaseAccounts/sqlRoleAssignments@2022-11-15' = {
-  parent: cosmosAccount
-  name: guid(cosmosAccount.id, complianceOfficerGroupId, complianceOfficerCosmosAssignmentScope, roleCosmosDBBuiltInContributor)
-  properties: {
-    principalId: complianceOfficerGroupId
-    roleDefinitionId: cosmosBuiltInContributorRoleDefinitionId
-    scope: complianceOfficerCosmosAssignmentScope
-  }
-}
+// Approvers authenticate only to the Review Web API and never receive direct PostgreSQL admin rights.

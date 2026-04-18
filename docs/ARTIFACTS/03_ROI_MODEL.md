@@ -50,7 +50,7 @@ Break down the monthly Azure operating cost for the production topology. Use the
 | API gateway | Azure API Management | Consumption | £0.00 | Assuming < 1 million calls/month. |
 | Compute | Azure Container Apps | 1 vCPU, 2GB, 1-2 replicas | £0.00 | Covered by free grant (2 million requests). Negligible cost. |
 | Secrets management | Azure Key Vault | Standard | £0.50 | ~10k operations. |
-| Observability | Azure Monitor / Log Analytics | Pay-As-You-Go | £2.50 | Estimating 1GB ingestion/month for traces. |
+| Observability | Azure Monitor (Log Analytics / Application Insights) | Pay-As-You-Go | £2.50 | Estimating 1GB ingestion/month for traces. |
 | Container registry | Azure Container Registry | Basic | £4.00 | Minimal image storage. |
 | Network egress | Egress to LangSmith / external | Zone 1 | £0.00 | First 100GB/month is free. |
 | **Total Azure cloud spend (monthly)** | | | **£177.00** | Cloud services only; human review and maintenance costs are accounted for in the operating-cost model above. |

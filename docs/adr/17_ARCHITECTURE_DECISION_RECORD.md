@@ -61,8 +61,8 @@ To comply with regulatory non-repudiation limits while achieving our throughput 
 
 **ID:** ADR-002  
 **Title:** State Persistence and Checkpointing Backend Selection  
-**Date:** 2026-04-17  
-**Status:** Deferred (D02)  
+**Date:** 2026-04-18  
+**Status:** Accepted (D05)  
 **Owners:** Architecture Team
 
 ### 2. Context
@@ -78,21 +78,21 @@ LangGraph requires a checkpoint store for durable state persistence to support o
 
 ### 4. Decision
 
-**Deferred.**
+We choose **Option 1: Azure Database for PostgreSQL Flexible Server**.
 
 ### 5. Rationale
 
-We are deferring this decision until Module 03 when we assemble the working graph prototype. We currently lack data on the exact volume and schema complexity of the `WorkflowState` object JSON blobs once fully populated with raw REACH document chunks. We will use `SqliteSaver` in-memory/local for early development until we define the schema footprint sizes.
+Following the Module 03 prototype evaluation, PostgreSQL proved exceptionally capable of handling the `WorkflowState` JSON blob serialization at scale without degrading resumption speed. Furthermore, relying on PostgreSQL's Entra native authentication provides stronger isolation against Bicep RBAC overlap that complicated the Cosmos DB deployments, aligning with our identity containment strategies.
 
 ### 6. Consequences
 
-- **Trade-offs:** Delayed infrastructure lock-in.
-- **New Risks:** Re-work required in M03 when migrating from SQLite to the final production engine.
-- **Follow-up actions:** Perform a spike in M03 to serialize a full 128k token context window state payload into PostgreSQL vs CosmosDB to evaluate performance degradation and resumption speed.
+- **Trade-offs:** PostgreSQL Flexible Server requires distinct Entra DB administration provisioning versus standard Azure RBAC assignments, slightly complicating initial deployment scripts.
+- **New Risks:** Large graph states could inflate the PostgreSQL footprint if not truncated or archived efficiently.
+- **Follow-up actions:** Ensure infrastructure only enables PostgreSQL Entra authentication and a dedicated bootstrap admin path; scoped runtime and API database roles must be provisioned separately without making the graph or approver identities server administrators.
 
 ### 7. Status updates
 
-**Status:** Deferred 
+**Status:** Accepted (D05) 
 
 ---
 
@@ -170,6 +170,80 @@ This natively fulfills ZT02 (No hidden write path/broad credential). By physical
 ### 7. Status updates
 
 **Status:** Accepted (Active)
+
+---
+
+### 1. ADR metadata
+
+**ID:** ADR-005  
+**Title:** Layered Observability Strategy  
+**Date:** 2026-04-18  
+**Status:** Accepted (D05)  
+**Owners:** Architecture Team
+
+### 2. Context
+
+We need comprehensive monitoring for the system, stretching from deep semantic execution logic down to root infrastructure constraints.
+
+### 3. Options considered
+
+1. **Single Pane of Glass (Only Azure Monitor).**
+2. **Layered Split (Azure Monitor + LangSmith).**
+
+### 4. Decision
+
+We choose **Option 2: Layered Split (Azure Monitor + LangSmith)**.
+
+### 5. Rationale
+
+Formalize a telemetry split: **Azure Monitor (Application Insights + Log Analytics)** handles broad infrastructure SLA latency and enterprise alerting, while **LangSmith** drives Graph-level semantic traceability. They serve entirely distinct operational audiences.
+
+### 6. Consequences
+
+- **Trade-offs:** Cost of maintaining two telemetry services.
+- **New Risks:** Correlating cross-system traces may require building explicit headers.
+- **Follow-up actions:** Ensure terminology is consistent across documentation.
+
+### 7. Status updates
+
+**Status:** Accepted (D05)
+
+---
+
+### 1. ADR metadata
+
+**ID:** ADR-006  
+**Title:** Agentic vs Deterministic Document Synthesis  
+**Date:** 2026-04-18  
+**Status:** Accepted (D05)  
+**Owners:** Architecture Team
+
+### 2. Context
+
+For extracting REACH concepts out of documents, do we rely on regex and rules engines or generative agents?
+
+### 3. Options considered
+
+1. **Rules Engine (Deterministic).**
+2. **Generative/Agentic routing.**
+
+### 4. Decision
+
+We choose **Option 2: Generative/Agentic routing**.
+
+### 5. Rationale
+
+Explicitly lock in Generative/Agentic routing for REACH document synthesis vs Rules Engines. The complexity and variability of REACH documents overwhelm deterministic parsers.
+
+### 6. Consequences
+
+- **Trade-offs:** Less predictability but much higher extraction accuracy.
+- **New Risks:** Hallucinations.
+- **Follow-up actions:** Tie this back to the human gate from ADR-001.
+
+### 7. Status updates
+
+**Status:** Accepted (D05)
 
 ## Evidence required for acceptance
 
