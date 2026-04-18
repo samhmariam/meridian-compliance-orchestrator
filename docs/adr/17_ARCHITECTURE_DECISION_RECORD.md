@@ -245,6 +245,43 @@ Explicitly lock in Generative/Agentic routing for REACH document synthesis vs Ru
 
 **Status:** Accepted (D05)
 
+---
+
+### 1. ADR metadata
+
+**ID:** ADR-007  
+**Title:** Strict Metadata and Provenance Schema  
+**Date:** 2026-04-18  
+**Status:** Accepted (D06)  
+**Owners:** Architecture Team
+
+### 2. Context
+
+Without rigorous indexing metadata, generic vector search cannot safely perform compliance reasoning. Distinctions between original legal text, internal operational mirrors, and superseded partial amendments must be enforced structurally.
+
+### 3. Options considered
+
+1. **Semantic Similarity Only:** Allow the retriever string matching to rank documents autonomously.
+2. **Strict Metadata Provenance Schema:** Establish a hard-fail metadata contract that all chunks and tool payloads must possess before being passed to LLMs.
+
+### 4. Decision
+
+We choose **Option 2: Strict Metadata Provenance Schema**.
+
+### 5. Rationale
+
+To definitively guard the Source-of-Truth architecture, vector indices and payload tools must explicitly track the base provenance schema: `origin_type`, `canonical_source_id`, `effective_from`, `valid_until`, `jurisdiction`, and chunk-level `amendment_of`. When `origin_type` is `mirror`, the payload must additionally provide `mirror_of` and `mirror_last_synced`; when `origin_type` is `origin`, those mirror-only fields remain null or omitted by design. This exposes provenance (e.g. origin vs mirror) to downstream telemetry and human approval gates, while safely handling partial amendments without rejecting an entire document corpus.
+
+### 6. Consequences
+
+- **Trade-offs:** Significantly higher ingestion pipeline logic complexity.
+- **New Risks:** Missing mandatory metadata for the declared `origin_type` will block document retrieval entirely, potentially reducing recall if ingestion is buggy.
+- **Follow-up actions:** Enforce the conditional schema contract strictly in the retrieval layer and downstream approval structures.
+
+### 7. Status updates
+
+**Status:** Accepted (D06)
+
 ## Evidence required for acceptance
 
 - [x] At least one ADR for each major module decision area.

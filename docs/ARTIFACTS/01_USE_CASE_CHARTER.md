@@ -50,12 +50,12 @@ An agentic architecture is justified because the workflow requires reading unstr
 
 **In scope:**
 - Automated initiation from structured intake form.
-- Sanctions screening against provided API simulator.
+- Sanctions screening against provided API simulator (Tier 2 Mirror - MVP Exemption applies for unblocking).
 - REACH substance declaration validation against local knowledge base via Retrieval-Augmented Generation (RAG).
-- Export control classification lookup.
+- Export control classification lookup (Tier 2 Internal DB - MVP Exemption applies for unblocking).
 - Autonomous compliance memo generation with citations to evidence.
 - A human-in-the-loop approval routing with an evidence packet.
-- Automated ERP activation trigger after human approval.
+- Automated ERP activation trigger after human approval. (MVP Scope: Activation is legally permitted using Tier 2 Operational Mirrors provided they meet bounded freshness conditions, simulating real-world Tier 1 API integration).
 - Complete execution audit trail.
 
 **Out of scope:**

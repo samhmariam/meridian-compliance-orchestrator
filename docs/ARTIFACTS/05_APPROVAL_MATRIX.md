@@ -51,10 +51,10 @@ For approval-required nodes, specify evidence packet contents.
 **Node:** `human_approval_gate`
 **Evidence Packet Required for Human Approver:**
 - **Supplier Profile Details:** `supplier_id`, `legal_name`, `country_of_incorporation`
-- **Sanctions Result:** Pass/Fail categorical flag with API execution timestamp and hash.
-- **REACH Compliance Summary:** LLM-generated synthesis of chemicals found, backed by directly cited source chunks (rendered with metadata showing `source_name` and `valid_until` dates for trust validation).
-- **Export Control Codes:** Raw HS Codes matching.
-- **System Recommendation:** The advisory `severity` level (clear, elevated, block) with explicit natural-language reasoning.
+- **Sanctions Result (Tier 2 Mirror):** Pass/Fail categorical flag with `mirror_last_synced` explicit timestamp. Must display `mvp_override_applied` flag to contextualize validity without Tier 1 origin check.
+- **REACH Compliance Summary:** LLM-generated synthesis of chemicals found, backed by directly cited source chunks (rendered with full structural metadata showing `canonical_source_id`, `valid_until` dates, and strictly enforced Tier 1 provenance for trust validation).
+- **Export Control Codes (Tier 2 Mirror):** Raw HS Codes matching, with `mirror_last_synced` explicit tracking and `mvp_override_applied` flag.
+- **System Recommendation & Authority Basis:** The advisory risk `severity` level (clear, elevated, block) combined with explicit `authority_basis` tracking (identifying if the final decision rode on an MVP operational proxy vs an original source).
 - **Action Buttons:** Approve, Reject, or Defer. (System explicitly rejects the hook if submitted without accompanying justification text).
 
 ### 4. Approval outcomes

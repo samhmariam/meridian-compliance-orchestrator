@@ -45,8 +45,8 @@ List spans per node, tool, retrieval step, model call, and external action.
 |---|---|---|---|
 | Graph node | `node.{node_name}` | `workflow.{workflow_id}` | `node_name`, `input_state_hash`, `output_state_hash`, `duration_ms` |
 | Model call | `model.{deployment_name}` | `node.{node_name}` | `run_name`, `usage_metadata.input_tokens`, `usage_metadata.output_tokens`, `usage_metadata.total_tokens`, `metadata` |
-| Tool call | `tool.{tool_name}` | `node.{node_name}` | `tool_name`, `tool_result_status`, `duration_ms` |
-| Retrieval | `retrieval.{index_name}` | `node.{node_name}` | `query_hash`, `top_k`, `result_count`, `source_tiers_returned` |
+| Tool call | `tool.{tool_name}` | `node.{node_name}` | `tool_name`, `tool_result_status`, `duration_ms`, `mirror_last_synced`, `mvp_override_applied` |
+| Retrieval | `retrieval.{index_name}` | `node.{node_name}` | `query_hash`, `top_k`, `result_count`, `superseded_filtered_count`, `stale_chunks_rejected`, `blocking_reason`, `effective_source_id` |
 
 *Note: Spans must attach LangSmith-recognized `usage_metadata` plus model metadata such as `ls_provider` and `ls_model_name` for token and cost dashboards to aggregate correctly.*
 
